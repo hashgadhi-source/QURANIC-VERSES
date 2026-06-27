@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Holy Quran Verses</title>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: #f7f5ef;
+      color: #17211d;
+      font-family: system-ui, sans-serif;
+      padding: 24px;
+    }
+    main {
+      width: min(760px, 100%);
+      text-align: center;
+      border: 1px solid #d7d0bf;
+      background: rgba(255,255,255,.8);
+      padding: clamp(28px, 7vw, 70px);
+      box-shadow: 0 24px 70px rgba(31,43,35,.14);
+    }
+    h1 {
+      margin: 0 0 28px;
+      font-size: 14px;
+      text-transform: uppercase;
+      color: #61706a;
+    }
+    #ref {
+      display: inline-block;
+      margin-bottom: 24px;
+      padding: 8px 14px;
+      border: 1px solid #d7d0bf;
+      border-radius: 999px;
+      color: #61706a;
+      font-weight: 700;
+    }
+    #arabic {
+      direction: rtl;
+      font-family: "Traditional Arabic", "Noto Naskh Arabic", serif;
+      font-size: clamp(34px, 6vw, 64px);
+      line-height: 1.7;
+      margin: 0 0 24px;
+    }
+    #translation {
+      color: #61706a;
+      font-family: Georgia, serif;
+      font-size: clamp(18px, 2.5vw, 24px);
+      line-height: 1.6;
+    }
+    button {
+      margin-top: 28px;
+      border: 0;
+      border-radius: 999px;
+      background: #0f6b58;
+      color: white;
+      padding: 14px 24px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Holy Quran Verses</h1>
+    <div id="ref">Loading...</div>
+    <p id="arabic">...</p>
+    <p id="translation">Please wait.</p>
+    <button id="newVerse">New Verse</button>
+  </main>
+
+  <script>
+    const API = "https://cdn.jsdelivr.net/gh/fawazahmed0/quran-api@1";
+    const refEl = document.querySelector("#ref");
+    const arabicEl = document.querySelector("#arabic");
+    const translationEl = document.querySelector("#translation");
+    const button = document.querySelector("#newVerse");
+
+    let ayahs = [];
+    let chapters = new Map();
+
+    async function json(url) {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("API error");
+      return res.json();
+    }
+
+    async function loadInfo() {
+      if (ayahs.length) return;
+      const info = await json(API + "/info.json");
+      chapters = new Map(info.chapters.map(ch => [ch.chapter, ch]));
+      ayahs = info.chapters.flatMap(ch =>
+        ch.verses.map(v => ({ chapter: ch.chapter, verse: v.verse }))
+      );
+    }
+
+    async function showVerse() {
+      button.disabled = true;
+      refEl.textContent = "Loading...";
+      arabicEl.textContent = "...";
+      translationEl.textContent = "Please wait.";
+
+      try {
+        await loadInfo();
+        const pick = ayahs[Math.floor(Math.random() * ayahs.length)];
+        const [ar, en] = await Promise.all([
+          json(`${API}/editions/ara-quranacademy/${pick.chapter}/${pick.verse}.json`),
+          json(`${API}/editions/eng-abdelhaleem/${pick.chapter}/${pick.verse}.json`)
+        ]);
+
+        const chapter = chapters.get(pick.chapter);
+        refEl.textContent = `${chapter.name} ${pick.chapter}:${pick.verse}`;
+        arabicEl.textContent = ar.text;
+        translationEl.textContent = en.text;
+      } catch {
+        refEl.textContent = "Connection needed";
+        arabicEl.textContent = "تعذر تحميل الآية";
+        translationEl.textContent = "The Quran API could not be reached.";
+      }
+
+      button.disabled = false;
+    }
+
+    button.addEventListener("click", showVerse);
+    showVerse();
+  </script>
+</body>
+</html>
